@@ -12,10 +12,17 @@ const port = 3000;
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// 업로드 폴더 설정
+// index.html 파일 제공
+app.use(express.static(path.join(__dirname)));
+
+// /upload 접속 시 index.html 열기
+app.get('/upload', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// 파일 업로드 처리
 const upload = multer({ dest: 'uploads/' });
 
-// 폼 처리 라우터
 app.post('/submit', upload.fields([
   { name: 'biz' },
   { name: 'idcard' },
@@ -25,7 +32,6 @@ app.post('/submit', upload.fields([
     const formData = req.body;
     const files = req.files;
 
-    // 이메일 전송 설정
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
