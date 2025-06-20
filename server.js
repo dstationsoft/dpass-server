@@ -3,26 +3,27 @@ const multer = require('multer');
 const nodemailer = require('nodemailer');
 const dotenv = require('dotenv');
 const path = require('path');
+const fs = require('fs');
 
 dotenv.config();
-
 const app = express();
 const port = process.env.PORT || 3000;
 
-// 정적 파일 경로 설정
+// 정적 파일 제공 설정 (index.html 포함)
 app.use(express.static(path.join(__dirname)));
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// 파일 업로드 설정
+// 업로드 폴더 설정
 const upload = multer({ dest: 'uploads/' });
 
-// 루트 또는 /upload 접속 시 index.html 전송
+// 메인 페이지 제공
 app.get(['/', '/upload'], (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// 가입 신청 폼 처리
+// 폼 처리 라우터
 app.post('/submit', upload.fields([
   { name: 'biz' },
   { name: 'idcard' },
@@ -32,6 +33,7 @@ app.post('/submit', upload.fields([
     const formData = req.body;
     const files = req.files;
 
+    // 이메일 전송 설정
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -72,6 +74,14 @@ app.post('/submit', upload.fields([
     };
 
     await transporter.sendMail(mailOptions);
+
+    // 업로드된 파일 삭제
+    Object.values(files).flat().forEach(file => {
+      fs.unlink(file.path, (err) => {
+        if (err) console.error('파일 삭제 실패:', err);
+      });
+    });
+
     res.send('신청이 성공적으로 접수되었습니다.');
   } catch (error) {
     console.error(error);
