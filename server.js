@@ -1,38 +1,37 @@
-// server.js
-
 const express = require('express');
 const multer = require('multer');
 const nodemailer = require('nodemailer');
 const dotenv = require('dotenv');
-const cors = require('cors');
 const path = require('path');
-const fs = require('fs');
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.use(cors());
+// 정적 파일 경로 설정
+app.use(express.static(path.join(__dirname)));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// 파일 저장 설정
+// 파일 업로드 설정
 const upload = multer({ dest: 'uploads/' });
 
-// 제출 처리 라우트
+// 루트 또는 /upload 접속 시 index.html 전송
+app.get(['/', '/upload'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// 가입 신청 폼 처리
 app.post('/submit', upload.fields([
-  { name: 'biz' }, { name: 'idcard' }, { name: 'bank' }
+  { name: 'biz' },
+  { name: 'idcard' },
+  { name: 'bank' }
 ]), async (req, res) => {
   try {
-    const {
-      owner, name, phone, baeminId,
-      partner, region, prepay, agree
-    } = req.body;
-
+    const formData = req.body;
     const files = req.files;
 
-    // Nodemailer 설정
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -42,55 +41,42 @@ app.post('/submit', upload.fields([
     });
 
     const mailOptions = {
-      from: `"D Pass 신청서" <${process.env.MAIL_USER}>`,
+      from: process.env.MAIL_USER,
       to: process.env.MAIL_RECEIVER,
-      subject: `[D PASS 신청서] ${name}님`,
+      subject: '디스테이션 디패스 회원가입 신청',
       html: `
-        <h2>신청 정보</h2>
-        <ul>
-          <li><strong>영업자:</strong> ${owner}</li>
-          <li><strong>성함:</strong> ${name}</li>
-          <li><strong>휴대폰번호:</strong> ${phone}</li>
-          <li><strong>배민비즈회원아이디:</strong> ${baeminId}</li>
-          <li><strong>협력사 운영여부:</strong> ${partner}</li>
-          <li><strong>운영희망지역:</strong> ${region}</li>
-          <li><strong>선정산 적용여부:</strong> ${prepay}</li>
-          <li><strong>개인정보 동의:</strong> ${agree}</li>
-        </ul>
+        <h3>회원가입 정보</h3>
+        <p><strong>영업자:</strong> ${formData.owner}</p>
+        <p><strong>성함:</strong> ${formData.name}</p>
+        <p><strong>휴대폰:</strong> ${formData.phone}</p>
+        <p><strong>배민ID:</strong> ${formData.baeminId}</p>
+        <p><strong>협력사 운영여부:</strong> ${formData.partner}</p>
+        <p><strong>운영희망지역:</strong> ${formData.region}</p>
+        <p><strong>선정산 적용여부:</strong> ${formData.prepay}</p>
+        <p><strong>개인정보 동의:</strong> ${formData.agree ? '동의함' : '미동의'}</p>
       `,
       attachments: [
         {
-          filename: files.biz?.[0]?.originalname || 'biz.pdf',
+          filename: files.biz?.[0]?.originalname || '사업자등록증',
           path: files.biz?.[0]?.path
         },
         {
-          filename: files.idcard?.[0]?.originalname || 'idcard.pdf',
+          filename: files.idcard?.[0]?.originalname || '신분증',
           path: files.idcard?.[0]?.path
         },
         {
-          filename: files.bank?.[0]?.originalname || 'bank.pdf',
+          filename: files.bank?.[0]?.originalname || '통장',
           path: files.bank?.[0]?.path
         }
       ]
     };
 
     await transporter.sendMail(mailOptions);
-
-    // 업로드된 파일 제거
-    Object.values(files).forEach(fileArr => {
-      fileArr.forEach(file => fs.unlink(file.path, () => {}));
-    });
-
-    res.send('신청서가 성공적으로 제출되었습니다.');
+    res.send('신청이 성공적으로 접수되었습니다.');
   } catch (error) {
     console.error(error);
     res.status(500).send('서버 오류가 발생했습니다.');
   }
-});
-
-// 기본 라우트
-app.get('/', (req, res) => {
-  res.send('D Pass 서버 작동 중입니다.');
 });
 
 app.listen(port, () => {
